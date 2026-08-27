@@ -11,7 +11,7 @@ env:
 jobs:
   send-emails:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 180
     steps:
       - name: Check out private repo
         uses: actions/checkout@v4
@@ -35,4 +35,4 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python -m app.cli campaign run --name autopilot-default --live --limit-per-day 10
+        run: python -m app.cli campaign run --name autopilot-default --live
