@@ -44,4 +44,5 @@ jobs:
       - name: Sync owner-led leads
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PLACES_API_KEY: ${{ secrets.PLACES_API_KEY }}
         run: python -m app.cli owner-leads sync --combos 1
