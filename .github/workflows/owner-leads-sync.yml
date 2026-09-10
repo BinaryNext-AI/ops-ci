@@ -45,7 +45,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PLACES_API_KEY: ${{ secrets.PLACES_API_KEY }}
-        run: python -m app.cli owner-leads sync --combos 1
+        run: python -m app.cli owner-leads sync --combos 3
 
       - name: Retry enrichment on leads still missing a website or phone
         env:
