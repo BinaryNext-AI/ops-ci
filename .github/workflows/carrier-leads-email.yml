@@ -1,0 +1,53 @@
+name: Carrier Leads Email
+
+# Sends the next due step of Trucklytics' 5-email sequence to CarrierLead
+# businesses, from Trucklytics' own trucklytics.net mailboxes.
+#
+# 15:00 UTC, deliberately INSIDE the configured send window
+# (SEND_WINDOW_START_HOUR/END_HOUR, 9-17 by default): app.outreach.
+# scheduling.is_within_send_window gates live sends on the runner's own
+# clock, which is UTC, so a cron outside that range would silently send
+# nothing. Runs after the 02:00 scrape, so each day's new carriers are
+# already in the table.
+#
+# --live is passed deliberately; whether anything actually sends is still
+# gated by the DB-backed carrier_leads_sending_enabled switch, its own
+# separate kill switch from the other two pipelines'. Mailbox credentials
+# come from the DB-backed settings table, so DATABASE_URL is all this
+# needs.
+
+on:
+  schedule:
+    - cron: "0 15 * * *"
+  workflow_dispatch: {}
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  carrier-leads-email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out private repo
+        uses: actions/checkout@v4
+        with:
+          repository: BinaryNext-AI/leadgen-outreach-tool
+          token: ${{ secrets.CHECKOUT_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Email carrier leads
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m app.cli carrier-leads email --live

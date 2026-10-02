@@ -1,0 +1,51 @@
+name: Carrier Leads Sync
+
+# Scrapes freight carriers from CarrierSource into the CarrierLead table.
+# Runs at 02:00 UTC: a quiet slot that doesn't overlap autopilot (05/13/21)
+# or the send jobs, and leaves the full 60-minute budget free since this
+# job walks many pages with a real browser.
+#
+# CarrierSource credentials are NOT passed here -- they live in the
+# DB-backed settings table (app/settings_store.py), which get_settings()
+# layers on top of env vars, so DATABASE_URL is all this needs.
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  carrier-leads-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out private repo
+        uses: actions/checkout@v4
+        with:
+          repository: BinaryNext-AI/leadgen-outreach-tool
+          token: ${{ secrets.CHECKOUT_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Sync carrier leads
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000
