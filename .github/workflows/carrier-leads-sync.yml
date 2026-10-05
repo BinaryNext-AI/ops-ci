@@ -51,5 +51,4 @@ jobs:
         run: >
           python -m app.cli carrier-leads run
           --total-pages 50 --batch-size 3 --limit 1000
-          --sort authority --fleet-min 3 --fleet-max 20
-          --max-authority-age-days 365
+          --fleet-min 3 --fleet-max 20
