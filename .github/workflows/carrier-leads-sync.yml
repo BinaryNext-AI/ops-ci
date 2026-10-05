@@ -50,5 +50,6 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: >
           python -m app.cli carrier-leads run
-          --total-pages 50 --batch-size 3 --limit 1000
+          --limit 1000
           --fleet-min 3 --fleet-max 20
+          --newest --max-authority-age-days 183
