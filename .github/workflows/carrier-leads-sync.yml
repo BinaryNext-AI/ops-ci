@@ -5,6 +5,11 @@ name: Carrier Leads Sync
 # or the send jobs, and leaves the full 60-minute budget free since this
 # job walks many pages with a real browser.
 #
+# Collects the NEWEST carriers (MC authority at most 183 days old, fleet 3-12):
+# CarrierSource has no "newer than" filter, so --newest jumps to where dated
+# carriers end in an oldest-first list and walks back from there. See
+# app/sources/carrier/_engine.py scrape_newest_companies in the main repo.
+#
 # CarrierSource credentials are NOT passed here -- they live in the
 # DB-backed settings table (app/settings_store.py), which get_settings()
 # layers on top of env vars, so DATABASE_URL is all this needs.
@@ -51,4 +56,5 @@ jobs:
         run: >
           python -m app.cli carrier-leads run
           --total-pages 50 --batch-size 3 --limit 1000
-          --fleet-min 3 --fleet-max 20
+          --fleet-min 3 --fleet-max 12
+          --newest --max-authority-age-days 183
