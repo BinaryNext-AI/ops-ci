@@ -3,7 +3,7 @@ name: Carrier Leads Email
 # Sends the next due step of Trucklytics' 5-email sequence to CarrierLead
 # businesses, from Trucklytics' own trucklytics.net mailboxes.
 #
-# 15:00 UTC, deliberately INSIDE the configured send window
+# 14:17 UTC (was 15:00), deliberately INSIDE the configured send window
 # (SEND_WINDOW_START_HOUR/END_HOUR, 9-17 by default): app.outreach.
 # scheduling.is_within_send_window gates live sends on the runner's own
 # clock, which is UTC, so a cron outside that range would silently send
@@ -18,7 +18,7 @@ name: Carrier Leads Email
 
 on:
   schedule:
-    - cron: "0 15 * * *"
+    - cron: "17 14 * * *"
   workflow_dispatch: {}
 
 env:
