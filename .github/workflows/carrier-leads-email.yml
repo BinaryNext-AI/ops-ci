@@ -3,7 +3,12 @@ name: Carrier Leads Email
 # Sends the next due step of Trucklytics' 5-email sequence to CarrierLead
 # businesses, from Trucklytics' own trucklytics.net mailboxes.
 #
-# 14:17 UTC (was 15:00), deliberately INSIDE the configured send window
+# 13:07 UTC, set EARLY on purpose: GitHub starts scheduled runs hours after
+# their cron time (observed +3.5h, +3.5h, +6.7h), so this is meant to START at
+# roughly 16:30-19:50 UTC = 9:30 PM-12:50 AM Pakistan = 9:30 AM-3:50 PM
+# Eastern/Pacific business hours. Not earlier than 13:07, because the send
+# window opens at 13:00 UTC and a run that starts before it sends nothing.
+# Also deliberately INSIDE the configured send window
 # (SEND_WINDOW_START_HOUR/END_HOUR, 9-17 by default): app.outreach.
 # scheduling.is_within_send_window gates live sends on the runner's own
 # clock, which is UTC, so a cron outside that range would silently send
@@ -18,7 +23,7 @@ name: Carrier Leads Email
 
 on:
   schedule:
-    - cron: "17 14 * * *"
+    - cron: "7 13 * * *"
   workflow_dispatch: {}
 
 env:
