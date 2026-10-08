@@ -26,6 +26,17 @@ on:
     - cron: "7 13 * * *"
   workflow_dispatch: {}
 
+# Same guard as the private repo's own copy of this job (added after two
+# dispatches overlapped on 2026-10-06). GitHub concurrency groups are
+# scoped PER REPO, so this stops ops-ci's own schedule+manual-dispatch
+# from double-firing within ops-ci -- it does NOT stop ops-ci and the
+# private repo's workflow_dispatch from running at the same time, which is
+# why app.carrier_outreach also takes a cross-process Postgres advisory
+# lock before sending (see run_carrier_campaign).
+concurrency:
+  group: carrier-leads-email-ops-ci
+  cancel-in-progress: false
+
 env:
   PYTHONUNBUFFERED: "1"
 
