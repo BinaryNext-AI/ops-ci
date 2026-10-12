@@ -3,17 +3,18 @@ name: Carrier Leads Email
 # Sends the next due step of Trucklytics' 5-email sequence to CarrierLead
 # businesses, from Trucklytics' own trucklytics.net mailboxes.
 #
-# 13:07 UTC, set EARLY on purpose: GitHub starts scheduled runs hours after
-# their cron time (observed +3.5h, +3.5h, +6.7h), so this is meant to START at
-# roughly 16:30-19:50 UTC = 9:30 PM-12:50 AM Pakistan = 9:30 AM-3:50 PM
-# Eastern/Pacific business hours. Not earlier than 13:07, because the send
-# window opens at 13:00 UTC and a run that starts before it sends nothing.
-# Also deliberately INSIDE the configured send window
-# (SEND_WINDOW_START_HOUR/END_HOUR, 9-17 by default): app.outreach.
-# scheduling.is_within_send_window gates live sends on the runner's own
-# clock, which is UTC, so a cron outside that range would silently send
-# nothing. Runs after the 02:00 scrape, so each day's new carriers are
-# already in the table.
+# HOURLY at :07 from 13:07 to 21:07 UTC -- the whole configured send window
+# (13:00-22:00 UTC, the DB-backed SEND_WINDOW_START_HOUR/END_HOUR; the gate
+# in app.outreach.scheduling.is_within_send_window reads the runner's UTC
+# clock). Was once a day at 13:07, but (a) GitHub started it 4-6 hours late
+# every day (17:46-19:18 UTC observed 2026-10-07..11) and a start after
+# 22:00 sends nothing, and (b) with 20-90s of spacing per send one run can
+# only send ~55, far below the 12 mailboxes' 480/day. Each run stops itself
+# at --time-budget-minutes 45, before the job timeout, and the next hour's
+# run continues; once every mailbox is at its daily cap, later runs send 0.
+# Runs never overlap: the concurrency group below within ops-ci, and the
+# Postgres advisory lock in app.carrier_outreach across repos (a manual
+# dashboard-button run in the private repo makes these skip, and vice versa).
 #
 # --live is passed deliberately; whether anything actually sends is still
 # gated by the DB-backed carrier_leads_sending_enabled switch, its own
@@ -23,7 +24,7 @@ name: Carrier Leads Email
 
 on:
   schedule:
-    - cron: "7 13 * * *"
+    - cron: "7 13-21 * * *"
   workflow_dispatch: {}
 
 # Same guard as the private repo's own copy of this job (added after two
@@ -70,4 +71,4 @@ jobs:
         # warmup cap, not this flag. Found live 2026-10-12: the CLI's old
         # default of 50 meant this run sent barely a quarter of the day's
         # real capacity (204/day across 12 mailboxes, 216 carriers due).
-        run: python -m app.cli carrier-leads email --live --limit 1000
+        run: python -m app.cli carrier-leads email --live --limit 1000 --time-budget-minutes 45
