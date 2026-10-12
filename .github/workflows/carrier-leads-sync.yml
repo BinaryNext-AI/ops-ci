@@ -1,9 +1,16 @@
 name: Carrier Leads Sync
 
 # Scrapes freight carriers from CarrierSource into the CarrierLead table.
-# Runs at 02:00 UTC: a quiet slot that doesn't overlap autopilot (05/13/21)
-# or the send jobs, and leaves the full 60-minute budget free since this
-# job walks many pages with a real browser.
+# FOUR runs a day (the boss's target, 2026-10-12: 50-100 new Founder-call
+# carriers a day -- 1-5 power units):
+#   02:00 UTC  6-15 trucks (tiers 2-3)
+#   08:00, 14:00, 20:00 UTC  1-5 trucks (Founder calls)
+# GitHub starts crons hours late (observed ~6h for the old 02:00), so these
+# are spread 6h apart; if two still collide, the concurrency group below
+# queues the second, and app.carrier_pipeline's Postgres advisory lock
+# makes a run that overlaps a dashboard-button run (private repo) skip.
+# Each run resumes every fleet-size slice from its saved ScrapeCursor, so
+# repeated runs keep reaching new pages instead of re-walking old ones.
 #
 # Collects the NEWEST carriers (MC authority at most 18 months old, 1-15
 # power units in tiers 1-5, 6-11, 12-15 -- the boss's ICP as revised 2026-10-07):
@@ -18,7 +25,12 @@ name: Carrier Leads Sync
 on:
   schedule:
     - cron: "0 2 * * *"
+    - cron: "0 8,14,20 * * *"
   workflow_dispatch: {}
+
+concurrency:
+  group: carrier-leads-sync-ops-ci
+  cancel-in-progress: false
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -54,8 +66,8 @@ jobs:
       - name: Sync carrier leads
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: >
-          python -m app.cli carrier-leads run
-          --total-pages 50 --batch-size 3 --limit 1000
-          --fleet-min 1 --fleet-max 15
-          --newest --max-authority-age-days 548
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          # 02:00 = 6-15 trucks; the other slots (and a manual run) = 1-5.
+          if [ "$SCHEDULE" = "0 2 * * *" ]; then fleet=(--fleet-min 6 --fleet-max 15); else fleet=(--fleet-min 1 --fleet-max 5); fi
+          python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 "${fleet[@]}" --newest --max-authority-age-days 548
