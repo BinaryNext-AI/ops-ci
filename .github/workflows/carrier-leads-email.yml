@@ -66,4 +66,8 @@ jobs:
       - name: Email carrier leads
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python -m app.cli carrier-leads email --live
+        # --limit 1000: the real daily throttle is the combined mailbox
+        # warmup cap, not this flag. Found live 2026-10-12: the CLI's old
+        # default of 50 meant this run sent barely a quarter of the day's
+        # real capacity (204/day across 12 mailboxes, 216 carriers due).
+        run: python -m app.cli carrier-leads email --live --limit 1000
