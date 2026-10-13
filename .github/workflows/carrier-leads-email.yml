@@ -26,6 +26,12 @@ on:
   schedule:
     - cron: "7 11-21 * * *"
   workflow_dispatch: {}
+  # Pushing .github/chain-start starts the chain at once (GitHub's cron starts
+  # are hours late). Touch that file to kick it off by hand; the concurrency
+  # group keeps this to one run at a time.
+  push:
+    paths:
+      - ".github/chain-start"
 
 # Same guard as the private repo's own copy of this job (added after two
 # dispatches overlapped on 2026-10-06). GitHub concurrency groups are
@@ -69,6 +75,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
 
+      - name: Note the start time
+        run: echo "START=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Email carrier leads
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -86,8 +95,13 @@ jobs:
       # away, unlike a cron). The crons above stay as a backstop that
       # restarts the chain if it ever breaks. Only on success, so a broken
       # setup can't loop; the concurrency group keeps it to one at a time.
+      # A run that ends quickly (e.g. another send was already running, so this
+      # one sent nothing) waits out 15 minutes first, so the chain can never spin.
       - name: Start the next run
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run carrier-leads-email.yml --repo "${{ github.repository }}" --ref main
+        run: |
+          elapsed=$(( $(date +%s) - START ))
+          [ "$elapsed" -lt 900 ] && sleep $(( 900 - elapsed ))
+          gh workflow run carrier-leads-email.yml --repo "${{ github.repository }}" --ref main

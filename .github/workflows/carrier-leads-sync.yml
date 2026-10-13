@@ -21,6 +21,12 @@ name: Carrier Leads Sync
 on:
   schedule:
     - cron: "0 2,6,10,14,18,22 * * *"
+  # Pushing .github/chain-start starts the chain at once (GitHub's cron starts
+  # are hours late). Touch that file to kick it off by hand; the concurrency
+  # group keeps this to one run at a time.
+  push:
+    paths:
+      - ".github/chain-start"
   workflow_dispatch:
     inputs:
       n:
