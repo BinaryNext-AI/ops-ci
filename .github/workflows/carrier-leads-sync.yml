@@ -1,22 +1,18 @@
 name: Carrier Leads Sync
 
 # Scrapes freight carriers from CarrierSource into the CarrierLead table.
-# FOUR runs a day (the boss's target, 2026-10-12: 50-100 new Founder-call
-# carriers a day -- 1-5 power units):
-#   02:00 UTC  6-15 trucks (tiers 2-3)
-#   08:00, 14:00, 20:00 UTC  1-5 trucks (Founder calls)
-# GitHub starts crons hours late (observed ~6h for the old 02:00), so these
-# are spread 6h apart; if two still collide, the concurrency group below
-# queues the second, and app.carrier_pipeline's Postgres advisory lock
-# makes a run that overlaps a dashboard-button run (private repo) skip.
-# Each run resumes every fleet-size slice from its saved ScrapeCursor, so
-# repeated runs keep reaching new pages instead of re-walking old ones.
-#
-# Collects the NEWEST carriers (MC authority at most 18 months old, 1-15
-# power units in tiers 1-5, 6-11, 12-15 -- the boss's ICP as revised 2026-10-07):
-# CarrierSource has no "newer than" filter, so --newest jumps to where dated
-# carriers end in an oldest-first list and walks back from there. See
-# app/sources/carrier/_engine.py scrape_newest_companies in the main repo.
+# SELF-RESTARTING (2026-10-13). GitHub starts scheduled runs hours late or
+# not at all, so the schedule alone gave ~2 scrapes a day. Each run now
+# scrapes (~55 min), RESTS 3 hours (back-to-back runs risk getting the
+# CarrierSource account flagged), then starts the next one -- ~6 scrapes a
+# day: run number n (the `n` input) is 6-15 trucks when n % 3 == 2, else 1-5
+# trucks (the boss's target is 50-100 new Founder-call carriers a day). The
+# one daily cron is only a backstop that restarts the chain if it ever
+# breaks; if it fires while the chain is alive, the concurrency group keeps
+# just ONE waiting run, so the chain never multiplies. Each run resumes
+# every fleet-size slice from its saved ScrapeCursor (main repo), and
+# app.carrier_pipeline's Postgres advisory lock stops it overlapping a
+# dashboard-button run in the private repo.
 #
 # CarrierSource credentials are NOT passed here -- they live in the
 # DB-backed settings table (app/settings_store.py), which get_settings()
@@ -25,8 +21,17 @@ name: Carrier Leads Sync
 on:
   schedule:
     - cron: "0 2 * * *"
-    - cron: "0 8,14,20 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      n:
+        description: "Run number in the chain (n % 3 == 2 scrapes 6-15 trucks, otherwise 1-5)"
+        required: false
+        default: "0"
+
+# Lets the job start its own next run (last step below).
+permissions:
+  contents: read
+  actions: write
 
 concurrency:
   group: carrier-leads-sync-ops-ci
@@ -38,7 +43,7 @@ env:
 jobs:
   carrier-leads-sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 300  # ~55 min scrape + 3 h rest
     steps:
       - name: Check out private repo
         uses: actions/checkout@v4
@@ -66,8 +71,19 @@ jobs:
       - name: Sync carrier leads
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SCHEDULE: ${{ github.event.schedule }}
+          N: ${{ github.event.inputs.n }}
         run: |
-          # 02:00 = 6-15 trucks; the other slots (and a manual run) = 1-5.
-          if [ "$SCHEDULE" = "0 2 * * *" ]; then fleet=(--fleet-min 6 --fleet-max 15); else fleet=(--fleet-min 1 --fleet-max 5); fi
+          # Every third run covers 6-15 trucks; the rest are the Founder-call size (1-5).
+          if [ $(( ${N:-0} % 3 )) -eq 2 ]; then fleet=(--fleet-min 6 --fleet-max 15); else fleet=(--fleet-min 1 --fleet-max 5); fi
           python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 "${fleet[@]}" --newest --max-authority-age-days 548
+
+      # Rest, then start the next run. always(): a failed scrape must not break
+      # the chain -- the 3-hour rest means a run that fails instantly can't spin.
+      - name: Rest, then start the next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          N: ${{ github.event.inputs.n }}
+        run: |
+          sleep 10800
+          gh workflow run carrier-leads-sync.yml --repo "${{ github.repository }}" --ref main -f n=$(( ${N:-0} + 1 ))
