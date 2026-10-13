@@ -24,7 +24,7 @@ name: Carrier Leads Email
 
 on:
   schedule:
-    - cron: "7 13-21 * * *"
+    - cron: "7 11-21 * * *"
   workflow_dispatch: {}
 
 # Same guard as the private repo's own copy of this job (added after two
