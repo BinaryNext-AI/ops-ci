@@ -38,6 +38,11 @@ concurrency:
   group: carrier-leads-email-ops-ci
   cancel-in-progress: false
 
+# Lets the job start its own next run (last step below).
+permissions:
+  contents: read
+  actions: write
+
 env:
   PYTHONUNBUFFERED: "1"
 
@@ -71,4 +76,18 @@ jobs:
         # warmup cap, not this flag. Found live 2026-10-12: the CLI's old
         # default of 50 meant this run sent barely a quarter of the day's
         # real capacity (204/day across 12 mailboxes, 216 carriers due).
-        run: python -m app.cli carrier-leads email --live --limit 1000 --time-budget-minutes 345 --pace
+        # --wait-for-window: if the window is closed, sleep until it opens.
+        # --pace: spread the day's remaining capacity until it closes.
+        run: python -m app.cli carrier-leads email --live --limit 1000 --time-budget-minutes 345 --pace --wait-for-window
+
+      # SELF-RESTARTING (2026-10-13): GitHub started the hourly crons hours
+      # late or not at all, so the day's capacity was never used. Each run
+      # now starts the next one the moment it ends (a dispatch starts right
+      # away, unlike a cron). The crons above stay as a backstop that
+      # restarts the chain if it ever breaks. Only on success, so a broken
+      # setup can't loop; the concurrency group keeps it to one at a time.
+      - name: Start the next run
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run carrier-leads-email.yml --repo "${{ github.repository }}" --ref main
