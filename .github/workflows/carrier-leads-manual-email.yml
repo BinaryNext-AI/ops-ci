@@ -21,7 +21,9 @@ on:
 
 concurrency:
   group: carrier-leads-manual-email-ops-ci
-  cancel-in-progress: false
+  # A newer run REPLACES the running one: this job is stateless (it only watches a
+  # queue), and it lets a push pick up new code without waiting out 5 hours.
+  cancel-in-progress: true
 
 permissions:
   contents: read
