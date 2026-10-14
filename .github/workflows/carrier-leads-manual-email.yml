@@ -1,0 +1,65 @@
+name: Carrier Leads Manual Email
+
+# Sends the emails queued with the Email button on a Carrier Call List card.
+# The dashboard can't send mail itself (its host blocks SMTP), so the button
+# queues the email and this light job -- always running, in this public repo
+# so it costs nothing -- sends it within ~20 seconds. It only watches one
+# small table and goes through app.cli carrier-leads send-manual, which also
+# applies the send window and the suppression list.
+#
+# SELF-RESTARTING like the other carrier jobs (GitHub's cron starts are hours
+# late): after its ~5.75 hours it starts the next run. Pushing
+# .github/chain-start starts it at once; the hourly cron is a backstop.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+  push:
+    paths:
+      - ".github/chain-start"
+
+concurrency:
+  group: carrier-leads-manual-email-ops-ci
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out private repo
+        uses: actions/checkout@v4
+        with:
+          repository: BinaryNext-AI/leadgen-outreach-tool
+          token: ${{ secrets.CHECKOUT_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Send queued manual emails
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m app.cli carrier-leads send-manual --minutes 340
+
+      - name: Start the next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run carrier-leads-manual-email.yml --repo "${{ github.repository }}" --ref main
