@@ -42,7 +42,7 @@ on:
 # lock before sending (see run_carrier_campaign).
 concurrency:
   group: carrier-leads-email-ops-ci
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 # Lets the job start its own next run (last step below).
 permissions:
