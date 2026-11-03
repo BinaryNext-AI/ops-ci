@@ -58,6 +58,8 @@ jobs:
       - name: Send queued manual emails
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Lets it restart the bulk email chain if GitHub drops it (2026-11-03).
+          GH_TOKEN: ${{ github.token }}
         run: python -m app.cli carrier-leads send-manual --minutes 340
 
       # Not when cancelled: a newer run replaced this one, and a restart from here
