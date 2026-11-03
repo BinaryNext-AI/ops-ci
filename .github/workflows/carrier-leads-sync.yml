@@ -5,7 +5,7 @@ name: Carrier Leads Sync
 # not at all, so the schedule alone gave ~2 scrapes a day. Each run now
 # scrapes (~55 min), RESTS 3 hours (back-to-back runs risk getting the
 # CarrierSource account flagged), then starts the next one -- ~6 scrapes a
-# day: every run scrapes 2-11 trucks, MC authority up to 15 months (the boss, 2026-10-27)
+# day: every run scrapes 2-8 trucks, MC authority up to 24 months (the boss, 2026-11-03)
 # trucks (the boss's target is 50-100 new Founder-call carriers a day). The
 # one daily cron is only a backstop that restarts the chain if it ever
 # breaks; if it fires while the chain is alive, the concurrency group keeps
@@ -30,7 +30,7 @@ on:
   workflow_dispatch:
     inputs:
       n:
-        description: "Run number in the chain (every run: 2-11 trucks, MC up to 15 months)"
+        description: "Run number in the chain (every run: 2-8 trucks, MC up to 24 months)"
         required: false
         default: "0"
 
@@ -80,9 +80,9 @@ jobs:
           N: ${{ github.event.inputs.n }}
         run: |
           # Every third run covers 6-15 trucks; the rest are the Founder-call size (1-5).
-          # The boss, 2026-10-27: Founder calls are 2-11 trucks with an MC up to 15 months old,
-          # so every run scrapes exactly that (456 days = 15 months).
-          python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 --fleet-min 2 --fleet-max 11 --newest --max-authority-age-days 456
+          # The boss, 2026-11-03: Founder calls are 2-8 trucks with an MC up to 24 months old,
+          # so every run scrapes exactly that (730 days = 24 months).
+          python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 --fleet-min 2 --fleet-max 8 --newest --max-authority-age-days 730
 
       # Rest, then start the next run. always(): a failed scrape must not break
       # the chain -- the 3-hour rest means a run that fails instantly can't spin.
