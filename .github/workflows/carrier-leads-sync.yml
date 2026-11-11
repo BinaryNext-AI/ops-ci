@@ -80,9 +80,9 @@ jobs:
           N: ${{ github.event.inputs.n }}
         run: |
           # Every third run covers 6-15 trucks; the rest are the Founder-call size (1-5).
-          # The boss, 2026-11-03: Founder calls are 2-8 trucks with an MC up to 24 months old,
+          # 2026-11-11: Founder calls are 2-10 trucks with an MC up to 24 months old (was 2-8),
           # so every run scrapes exactly that (730 days = 24 months).
-          python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 --fleet-min 2 --fleet-max 8 --newest --max-authority-age-days 730
+          python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 --fleet-min 2 --fleet-max 10 --newest --max-authority-age-days 730
 
       # The boss, 2026-11-11: CarrierSource has run dry for 2-8 trucks under 24
       # months (0-8 new a run), so each run also adds new carriers straight from
