@@ -84,6 +84,16 @@ jobs:
           # so every run scrapes exactly that (730 days = 24 months).
           python -m app.cli carrier-leads run --total-pages 50 --batch-size 3 --limit 1000 --fleet-min 2 --fleet-max 8 --newest --max-authority-age-days 730
 
+      # The boss, 2026-11-11: CarrierSource has run dry for 2-8 trucks under 24
+      # months (0-8 new a run), so each run also adds new carriers straight from
+      # FMCSA's register. A failure here never stops the chain.
+      - name: Add new carriers from FMCSA
+        if: always()
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m app.carrier_fmcsa_import --limit 100
+
       # Rest, then start the next run. always(): a failed scrape must not break
       # the chain -- the 3-hour rest means a run that fails instantly can't spin.
       - name: Rest, then start the next run
