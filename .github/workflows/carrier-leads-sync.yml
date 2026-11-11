@@ -92,6 +92,7 @@ jobs:
         continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FMCSA_APP_TOKEN: ${{ secrets.FMCSA_APP_TOKEN }}
         run: python -m app.carrier_fmcsa_import --limit 100
 
       # Rest, then start the next run. always(): a failed scrape must not break

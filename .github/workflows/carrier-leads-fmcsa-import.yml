@@ -44,4 +44,6 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           LIMIT: ${{ github.event.inputs.limit }}
+          # FMCSA throttles requests without one; add it under Settings -> Secrets.
+          FMCSA_APP_TOKEN: ${{ secrets.FMCSA_APP_TOKEN }}
         run: python -m app.carrier_fmcsa_import --limit "${LIMIT:-300}"
